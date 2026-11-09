@@ -1,0 +1,13 @@
+{
+  "name": "saeedijaz69-profile",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node src/build.mjs"
+  },
+  "devDependencies": {
+    "opentype.js": "^1.3.4",
+    "sharp": "^0.33.5",
+    "simple-icons": "^13.21.0"
+  }
+}

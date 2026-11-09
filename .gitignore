@@ -1,0 +1,5 @@
+_private/
+node_modules/
+.claude/
+preview.html
+render/
