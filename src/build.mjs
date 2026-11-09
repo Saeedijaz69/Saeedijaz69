@@ -63,7 +63,6 @@ const ME = {
       ["Open to", "Freelance & collabs"],
     ],
     left: `© ${new Date().getFullYear()} Saeed Ijaz`,
-    right: "DESIGNED WITH AI IN DUBAI",
   },
 };
 
@@ -343,7 +342,6 @@ const TOOLS = [
   });
   b += `<line x1="48" y1="${h - 72}" x2="${W - 48}" y2="${h - 72}" stroke="#fff" stroke-opacity=".1"/>`;
   b += T(ME.footer.left, { x: 48, y: h - 34, size: 15, w: "med", op: 0.7 });
-  b += T(ME.footer.right, { x: W - 48, y: h - 34, size: 12, w: "bold", op: 0.45, ls: 1.4, anchor: "end" });
   sizes.footer = svg("footer", h, b, {
     title: "Saeed Ijaz — Dubai, UAE",
     defs: `${glow("g1", "#B3261E", 0.35)}${glow("g2", "#5B2A86", 0.3)}`,
