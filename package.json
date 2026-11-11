@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node src/build.mjs"
+    "build": "node src/build.mjs",
+    "render": "node src/render.mjs"
   },
   "devDependencies": {
+    "harfbuzzjs": "^0.4.15",
     "opentype.js": "^1.3.4",
     "sharp": "^0.33.5",
     "simple-icons": "^13.21.0"

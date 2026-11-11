@@ -1,10 +1,15 @@
 // Builds the profile README graphics (assets/*.svg).
-// Every piece of text is converted to vector outlines with the real
-// Inter Display font, so it looks identical on every device.
+//
+// The layout is a 1:0.75 translation of the Framer template
+// (1200px container -> 900px inside a 1000px card). Small text is set a little
+// larger than a strict 0.75 scale so it stays readable at GitHub's width.
+// Every piece of text is converted to vector outlines with Inter (the same
+// files the Framer site serves), so it looks identical on every device.
 //
 //   npm run build
 //
 import opentype from "opentype.js";
+import hbInit from "harfbuzzjs";
 import sharp from "sharp";
 import * as SI from "simple-icons";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -19,333 +24,420 @@ mkdirSync(OUT, { recursive: true });
 /* Content — edit me                                                   */
 /* ------------------------------------------------------------------ */
 const ME = {
-  first: "Saeed",
-  last: "Ijaz",
-  roles: "DESIGNER · VIDEOGRAPHER · VIDEO EDITOR",
-  intro: [
-    "I design, shoot and edit, and I build my own",
-    "products along the way. Based in Dubai, working",
-    "with the latest AI to go from idea to finished, fast.",
-  ],
+  logo: "Saeed",
+  location: "Dubai, UAE",
+  hello: "Hello, I’m Saeed Ijaz",
+  title: ["DESIGNER+", "DEVELOPER"],
+  intro:
+    "A designer and developer based in Dubai. I build brands, products and motion, shoot and edit along the way, and work with the latest AI to go from idea to finished, fast.",
   status: "Available for work",
+  toolsLabel: "TOOLKIT",
+  tools: [
+    ["Figma", SI.siFigma],
+    ["Photoshop", SI.siAdobephotoshop],
+    ["Illustrator", SI.siAdobeillustrator],
+    ["After Effects", SI.siAdobeaftereffects],
+    ["Claude", SI.siClaude],
+    ["Codex", SI.siOpenai],
+  ],
   services: [
     {
-      icon: "pen",
-      title: "Design",
-      text: ["Brand, social and UI design that is clean,", "intentional and made to be used."],
-      tags: "FIGMA · PHOTOSHOP · ILLUSTRATOR",
+      title: "Branding",
+      tags: ["Identity", "Strategy", "Social"],
+      text: "Brand identities that build trust and stay consistent everywhere they show up.",
     },
     {
-      icon: "camera",
-      title: "Videography",
-      text: ["Brand films, reels and product shoots", "with a cinematic eye for light."],
-      tags: "BRAND FILMS · REELS · PRODUCT",
+      title: "Product Design",
+      tags: ["Website", "App", "Design Systems"],
+      text: "Interfaces that feel simple and clear, from the first sketch to the final pixel.",
     },
     {
-      icon: "timeline",
-      title: "Video Editing",
-      text: ["Cutting, colour and motion that keeps", "people watching until the last frame."],
-      tags: "PREMIERE · AFTER EFFECTS · DAVINCI",
+      title: "Development",
+      tags: ["Web", "Windows", "Android"],
+      text: "Turning designs into real, working apps and sites, built fast with the latest AI.",
     },
     {
-      icon: "spark",
-      title: "Projects & AI",
-      text: ["Building my own apps, plugins and tools", "with the newest AI models and workflows."],
-      tags: "CLAUDE · CODEX",
+      title: "Motion Design",
+      tags: ["Motion Graphics", "Video", "3D"],
+      text: "Animation and video that give a brand rhythm and keep people watching.",
+    },
+  ],
+  projects: [
+    {
+      name: "Couch",
+      text: "Your Android phone becomes a trackpad, keyboard and media remote for your Windows PC.",
+      chip: "Windows · Android",
+      image: "couch",
+    },
+    {
+      name: "Duet",
+      text: "Plays your PC’s sound on two headphones at once, perfectly in sync, so two people can watch one movie.",
+      chip: "Windows",
+      image: "duet",
     },
   ],
   footer: {
-    text: ["Designer, videographer and video editor", "building with AI. Based in Dubai."],
-    button: "Let's create something",
-    info: [
-      ["Based in", "Dubai, UAE"],
-      ["Time zone", "GMT+4"],
-      ["Open to", "Freelance & collabs"],
+    heading: ["HAVE A PROJECT", "IDEA? LET’S TALK"],
+    chip: "Open for projects",
+    columns: [
+      ["SERVICES", ["Branding", "Product Design", "Development", "Motion Design"]],
+      ["PROJECTS", ["Couch", "Duet"]],
+      ["LOCATION", ["Dubai, UAE", "GMT+4"]],
     ],
-    left: `© ${new Date().getFullYear()} Saeed Ijaz`,
+    copyright: `© ${new Date().getFullYear()} Saeed Ijaz. All Rights Reserved`,
   },
 };
 
 /* ------------------------------------------------------------------ */
-/* Design tokens                                                       */
+/* Design tokens (read from the Framer site's computed styles)         */
 /* ------------------------------------------------------------------ */
 const W = 1000;
+const S = 0.75; // Framer px -> card px
+const M = 50; // card side margin (Framer container left edge, 113px)
+const X = (x) => M + (x - 113) * S;
 const C = {
-  bg: "#000000",
-  panel: "#0A0A0A",
-  line: "#FFFFFF",
-  text: "#FFFFFF",
-  accent: "#FF4A2B",
-  green: "#3DDC84",
+  page: "#FFFFFF",
+  soft: "#F9F9F9", // footer + light buttons
+  ink: "#0C0407",
+  muted: "#666666",
+  item: "#333333",
+  gray: "#808080",
+  line: "#CACACA",
+  logo: "#7A7A7A", // the greyed client/tool logos
+  green: "#22C55E",
 };
 
-const F = {
-  bold: opentype.loadSync(join(ROOT, "src/fonts/InterDisplay-Bold.otf")),
-  semi: opentype.loadSync(join(ROOT, "src/fonts/InterDisplay-SemiBold.otf")),
-  med: opentype.loadSync(join(ROOT, "src/fonts/InterDisplay-Medium.otf")),
-  reg: opentype.loadSync(join(ROOT, "src/fonts/InterDisplay-Regular.otf")),
+const FILES = {
+  400: join(ROOT, "src/fonts/Inter-Regular.ttf"),
+  500: join(ROOT, "src/fonts/Inter-Medium.ttf"),
+  600: join(ROOT, "src/fonts/Inter-SemiBold.ttf"),
+  700: join(ROOT, "src/fonts/Inter-Bold.ttf"),
 };
+const F = Object.fromEntries(Object.entries(FILES).map(([w, file]) => [w, opentype.loadSync(file)]));
+const ASC = 1984 / 2048;
+const CONTENT = (1984 + 494) / 2048;
+const CAP = 1490 / 2048;
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                             */
+/* Text helpers                                                        */
 /* ------------------------------------------------------------------ */
-function layout(font, str, size, ls) {
-  const glyphs = font.stringToGlyphs(str);
-  const s = size / font.unitsPerEm;
+// Shaping with HarfBuzz (the engine Chrome uses), so kerning and advances
+// match the browser exactly; opentype.js only supplies the outlines.
+const hb = await hbInit;
+const HB = Object.fromEntries(
+  Object.entries(FILES).map(([w, file]) => [w, hb.createFont(hb.createFace(hb.createBlob(readFileSync(file)), 0))]),
+);
+
+/** CSS-like layout: shaped advances, letter-spacing after every glyph. */
+function layout(w, str, size, ls) {
+  const buf = hb.createBuffer();
+  buf.addText(str);
+  buf.guessSegmentProperties();
+  // like Chrome: letter-spacing turns off ligatures and contextual alternates
+  hb.shape(HB[w], buf, ls ? "-liga,-clig,-dlig,-hlig,-calt" : "");
+  const out = buf.json();
+  buf.destroy();
+  const k = size / F[w].unitsPerEm;
   let x = 0;
   const items = [];
-  glyphs.forEach((g, i) => {
-    items.push({ g, x });
-    x += g.advanceWidth * s;
-    if (i < glyphs.length - 1) x += font.getKerningValue(g, glyphs[i + 1]) * s + ls;
-  });
+  for (const g of out) {
+    items.push({ g: F[w].glyphs.get(g.g), x: x + g.dx * k, y: -g.dy * k });
+    x += g.ax * k + ls;
+  }
   return { items, width: x };
 }
-const measure = (str, size, w = "bold", ls = 0) => layout(F[w], str, size, ls).width;
+const em = (size, pct) => size * pct; // letter-spacing given in em
+const measure = (str, size, w = 400, ls = 0) => layout(w, str, size, ls).width;
+/** First baseline of a CSS line box: top + half-leading + ascender. */
+const base = (top, lh, size) => top + (lh - CONTENT * size) / 2 + ASC * size;
 
-/** Text as a single <path>. */
-function T(str, { x, y, size, w = "bold", fill = C.text, op, ls = 0, anchor = "start", cls, style }) {
-  const L = layout(F[w], str, size, ls);
+/** Text as a single <path>. y is the baseline. */
+function T(str, { x, y, size, w = 400, fill = C.ink, ls = 0, anchor = "start", cls, style }) {
+  const L = layout(w, str, size, ls);
   const x0 = anchor === "middle" ? x - L.width / 2 : anchor === "end" ? x - L.width : x;
   let d = "";
-  for (const it of L.items) d += it.g.getPath(x0 + it.x, y, size).toPathData(2);
-  return `<path d="${d}" fill="${fill}"${op != null ? ` fill-opacity="${op}"` : ""}${cls ? ` class="${cls}"` : ""}${style ? ` style="${style}"` : ""}/>`;
-}
-const label = (str, x, y, o = {}) => T(str, { x, y, size: 13, w: "bold", op: 0.55, ls: 1.4, ...o });
-
-/** The orange "+" mark. */
-const plus = (cx, cy, s = 22, t = 5, cls = "plus") =>
-  `<g class="${cls}" style="transform-origin:${cx}px ${cy}px"><rect x="${cx - s / 2}" y="${cy - t / 2}" width="${s}" height="${t}" fill="${C.accent}"/><rect x="${cx - t / 2}" y="${cy - s / 2}" width="${t}" height="${s}" fill="${C.accent}"/></g>`;
-
-const spark = (cx, cy, r, fill = C.text, op = 1) =>
-  `<path d="M${cx},${cy - r}C${cx},${cy - r * 0.22} ${cx + r * 0.22},${cy} ${cx + r},${cy}C${cx + r * 0.22},${cy} ${cx},${cy + r * 0.22} ${cx},${cy + r}C${cx},${cy + r * 0.22} ${cx - r * 0.22},${cy} ${cx - r},${cy}C${cx - r * 0.22},${cy} ${cx},${cy - r * 0.22} ${cx},${cy - r}Z" fill="${fill}" fill-opacity="${op}"/>`;
-
-/** A pill that looks like a button but is a status badge, not a link. */
-function pill(x, y, text, { h = 46, primary = true, dot = null, icon = null, size = 15 } = {}) {
-  const pad = 22;
-  const lead = dot || icon ? 20 : 0;
-  const w = measure(text, size, "med") + pad * 2 + lead;
-  const r = h / 2;
-  let s = `<g>`;
-  s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${primary ? "url(#btn)" : "none"}" stroke="${C.line}" stroke-opacity="${primary ? 0.16 : 0.1}"/>`;
-  if (primary) s += `<rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${h / 2}" rx="${r - 1}" fill="#fff" fill-opacity=".04"/>`;
-  if (dot) s += `<circle cx="${x + pad + 4}" cy="${y + h / 2}" r="4.5" fill="${dot}" class="pulse"/><circle cx="${x + pad + 4}" cy="${y + h / 2}" r="4.5" fill="none" stroke="${dot}" class="ping" style="transform-origin:${x + pad + 4}px ${y + h / 2}px"/>`;
-  if (icon === "spark") s += `<g class="twinkle" style="transform-origin:${x + pad + 5}px ${y + h / 2}px">${spark(x + pad + 5, y + h / 2, 7, C.accent)}</g>`;
-  s += T(text, { x: x + pad + lead, y: y + h / 2 + size * 0.36, size, w: "med" });
-  return { svg: s + `</g>`, w };
+  for (const it of L.items) d += it.g.getPath(x0 + it.x, y + it.y, size).toPathData(size > 40 ? 1 : 2);
+  return `<path d="${d}" fill="${fill}"${cls ? ` class="${cls}"` : ""}${style ? ` style="${style}"` : ""}/>`;
 }
 
-/** Faint vertical grid lines like the template. */
-const grid = (h) =>
-  `<g stroke="${C.line}" stroke-opacity=".055">${[200, 400, 600, 800].map((x) => `<line x1="${x}" y1="0" x2="${x}" y2="${h}"/>`).join("")}</g>`;
+/** Greedy word wrap. */
+function wrap(str, size, w, ls, maxW) {
+  const words = str.split(" ");
+  const lines = [];
+  let cur = "";
+  for (const word of words) {
+    const next = cur ? cur + " " + word : word;
+    if (cur && measure(next, size, w, ls) > maxW) {
+      lines.push(cur);
+      cur = word;
+    } else cur = next;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
 
-const BASE_CSS = `
-  .up{opacity:0;animation:up 1s cubic-bezier(.16,.84,.3,1) forwards}
-  @keyframes up{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-  .fade{opacity:0;animation:fade 1.4s ease forwards}
-  @keyframes fade{to{opacity:1}}
-  .plus{animation:turn 7s cubic-bezier(.7,0,.3,1) infinite}
-  @keyframes turn{0%,72%{transform:rotate(0)}86%,100%{transform:rotate(180deg)}}
-  .pulse{animation:pulse 2.2s ease-in-out infinite}
-  @keyframes pulse{50%{opacity:.45}}
-  .ping{animation:ping 2.2s cubic-bezier(0,0,.2,1) infinite}
-  @keyframes ping{0%{transform:scale(1);opacity:.8}80%,100%{transform:scale(2.6);opacity:0}}
-  .twinkle{animation:tw 3.2s ease-in-out infinite}
-  @keyframes tw{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(.7) rotate(45deg)}}
-  .breathe{animation:br 9s ease-in-out infinite}
-  @keyframes br{50%{opacity:.55}}
-  @media (prefers-reduced-motion:reduce){*{animation:none!important;opacity:1!important}}
+/** A paragraph block. Returns svg + bottom edge of its last line box. */
+function para(str, { x, top, size, lh, w = 400, fill = C.ink, ls = 0, maxW, anchor, cls, delay = 0 }) {
+  const lines = wrap(str, size, w, ls, maxW);
+  let s = "";
+  lines.forEach((ln, i) => {
+    s += T(ln, { x, y: base(top + i * lh, lh, size), size, w, fill, ls, anchor });
+  });
+  return { svg: anim(s, delay, cls), bottom: top + lines.length * lh, lines };
+}
+
+const anim = (inner, delay = 0, cls = "up") => `<g class="${cls}" style="animation-delay:${delay.toFixed(2)}s">${inner}</g>`;
+
+/* ------------------------------------------------------------------ */
+/* Card wrapper                                                        */
+/* ------------------------------------------------------------------ */
+const CSS = `
+  .up{animation:up 1s cubic-bezier(.16,1,.3,1) both}
+  @keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+  .fade{animation:fade 1.4s ease both}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .pulse{animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.4}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 `;
-
-/** Wrap content in a rounded black card. */
 const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-function svg(name, h, body, { css = "", defs = "", gridLines = true, title: rawTitle = name } = {}) {
-  const title = esc(rawTitle);
-  const out = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" role="img" aria-label="${title}">
-<title>${title}</title>
-<style>${BASE_CSS}${css}</style>
+const sizes = {};
+function svg(name, h, body, { bg = C.page, title, defs = "" }) {
+  const t = esc(title);
+  const out = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${h}" width="${W}" height="${h}" role="img" aria-label="${t}">
+<title>${t}</title>
+<style>${CSS}</style>
 <defs>
-  <clipPath id="card"><rect width="${W}" height="${h}" rx="28"/></clipPath>
-  <linearGradient id="btn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A1A1A"/><stop offset="1" stop-color="#0B0B0B"/></linearGradient>
+  <clipPath id="card"><rect width="${W}" height="${h}" rx="20"/></clipPath>
   ${defs}
 </defs>
 <g clip-path="url(#card)">
-  <rect width="${W}" height="${h}" fill="${C.bg}"/>
-  ${gridLines ? grid(h) : ""}
+  <rect width="${W}" height="${h}" fill="${bg}"/>
   ${body}
 </g>
-<rect x=".5" y=".5" width="${W - 1}" height="${h - 1}" rx="27.5" fill="none" stroke="${C.line}" stroke-opacity=".09"/>
+<rect x=".5" y=".5" width="${W - 1}" height="${h - 1}" rx="19.5" fill="none" stroke="${C.ink}" stroke-opacity=".08"/>
 </svg>
 `;
   writeFileSync(join(OUT, `${name}.svg`), out);
-  return out.length;
+  sizes[name] = `${(out.length / 1024).toFixed(0)} KB`;
 }
 
-const glow = (id, color, op) =>
-  `<radialGradient id="${id}"><stop offset="0" stop-color="${color}" stop-opacity="${op}"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient>`;
+/** Load, crop and embed a photo as a 2x JPEG data URI. */
+async function photo(file, w, h, crop) {
+  const src = join(ROOT, "src/images", file);
+  if (!existsSync(src)) return null;
+  let img = sharp(src);
+  if (crop) img = img.extract(crop);
+  const buf = await img
+    .resize({ width: Math.round(w * 2), height: Math.round(h * 2), fit: "cover", position: "centre" })
+    .jpeg({ quality: 84, mozjpeg: true })
+    .toBuffer();
+  return `data:image/jpeg;base64,${buf.toString("base64")}`;
+}
 
-const sizes = {};
+/** A filled button (rectangle, square corners — as in the template). */
+function button(x, top, text, { h = 38, size = 15, w = 600, fill = C.ink, color = "#fff", pad = 18, dot, stroke } = {}) {
+  const lead = dot ? 15 : 0;
+  const tw = measure(text, size, w, em(size, -0.02));
+  const bw = tw + pad * 2 + lead;
+  let s = `<rect x="${x}" y="${top}" width="${bw}" height="${h}" fill="${fill}"${stroke ? ` stroke="${stroke}"` : ""}/>`;
+  if (dot) s += `<circle class="pulse" cx="${x + pad + 4}" cy="${top + h / 2}" r="4" fill="${dot}"/>`;
+  s += T(text, { x: x + pad + lead, y: top + h / 2 + (CAP * size) / 2, size, w, fill: color, ls: em(size, -0.02) });
+  return { svg: s, w: bw };
+}
 
 /* ------------------------------------------------------------------ */
 /* 1. Hero                                                             */
 /* ------------------------------------------------------------------ */
 {
-  const h = 640;
-  let portrait = "";
-  const src = join(ROOT, "_private/portrait.png");
-  if (existsSync(src)) {
-    const jpg = await sharp(src).resize({ width: 900 }).jpeg({ quality: 78, mozjpeg: true }).toBuffer();
-    const meta = await sharp(jpg).metadata();
-    // fit the portrait to the right side, top-aligned
-    const pw = 580;
-    const ph = (meta.height / meta.width) * pw;
-    portrait = `<image class="photo" x="${W - pw + 40}" y="-50" width="${pw}" height="${ph}" href="data:image/jpeg;base64,${jpg.toString("base64")}"/>`;
-  } else {
-    portrait = `<ellipse cx="760" cy="300" rx="190" ry="240" fill="#141414"/>`;
-  }
-  const nameSize = 104;
-  const full = `${ME.first} ${ME.last}`;
-  const nameW = measure(full, nameSize, "bold", -2.6);
+  const Y = (y) => 6 + y * S; // Framer page y -> card y
   let b = "";
-  b += `<g class="breathe"><ellipse cx="260" cy="40" rx="420" ry="260" fill="url(#g1)"/><ellipse cx="640" cy="-20" rx="380" ry="220" fill="url(#g2)"/></g>`;
-  // photo fades into the page on the left and bottom
-  b += `<g mask="url(#mh)"><g mask="url(#mv)"><g class="fade" style="animation-duration:2.2s">${portrait}</g></g></g>`;
-  b += label(ME.roles, 48, 352, { cls: "up", style: "animation-delay:.1s" });
-  b += T(full, { x: 44, y: 448, size: nameSize, w: "bold", ls: -2.6, cls: "up", style: "animation-delay:.2s" });
-  b += `<g class="up" style="animation-delay:.35s">${plus(44 + nameW + 18, 372, 30, 7)}</g>`;
-  ME.intro.forEach((line, i) => {
-    b += T(line, { x: 48, y: 496 + i * 26, size: 17.5, w: "med", op: 0.62, cls: "up", style: `animation-delay:${0.4 + i * 0.06}s` });
+
+  // header: logo + location chip (Framer: logo 80x34 @ y23, Contact button 40px @ y20)
+  b += anim(T(ME.logo, { x: M, y: Y(40) + (CAP * 22) / 2, size: 22, w: 700, ls: em(22, -0.03) }), 0, "fade");
+  {
+    const size = 14, h = 34, pad = 15;
+    const tw = measure(ME.location, size, 600, em(size, -0.02));
+    const bw = tw + pad * 2;
+    const x = W - M - bw, top = Y(40) - h / 2;
+    b += anim(
+      `<rect x="${x}" y="${top}" width="${bw}" height="${h}" fill="#fff" stroke="${C.ink}" stroke-opacity=".12"/>` +
+        T(ME.location, { x: x + pad, y: top + h / 2 + (CAP * size) / 2, size, w: 600, ls: em(size, -0.02) }),
+      0,
+      "fade",
+    );
+  }
+
+  // "Hello, I'm …"  32px/36 regular, -3%  ->  24px
+  b += anim(T(ME.hello, { x: W / 2, y: base(Y(205), 36 * S, 24), size: 24, w: 400, ls: em(24, -0.03), anchor: "middle" }), 0.05);
+
+  // DESIGNER+ / DEVELOPER  180px/160 bold, -8%, centred  ->  135px
+  const hs = 180 * S;
+  ME.title.forEach((line, i) => {
+    b += anim(T(line, { x: W / 2, y: base(Y(301 + i * 160), 160 * S, hs), size: hs, w: 700, ls: em(hs, -0.08), anchor: "middle" }), 0.12 + i * 0.1);
   });
-  const p1 = pill(48, 566, "Open for projects");
-  const p2 = pill(48 + p1.w + 12, 566, "Dubai, UAE", { primary: false });
-  b += `<g class="up" style="animation-delay:.6s">${p1.svg}${p2.svg}</g>`;
-  sizes.hero = svg("hero", h, b, {
-    title: "Saeed Ijaz — designer, videographer and video editor in Dubai",
-    defs: `${glow("g1", "#B3261E", 0.34)}${glow("g2", "#5B2A86", 0.28)}
-      <linearGradient id="fl" gradientUnits="userSpaceOnUse" x1="440" y1="0" x2="640" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient>
-      <linearGradient id="fb" gradientUnits="userSpaceOnUse" x1="0" y1="${h - 170}" x2="0" y2="${h - 10}"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>
-      <mask id="mh" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${h}"><rect width="${W}" height="${h}" fill="url(#fl)"/></mask>
-      <mask id="mv" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${h}"><rect width="${W}" height="${h}" fill="url(#fb)"/></mask>`,
-    css: `.photo{animation:zoom 2.6s cubic-bezier(.16,.84,.3,1) forwards;transform-origin:760px 260px}@keyframes zoom{from{transform:scale(1.06)}to{transform:none}}`,
+
+  // portrait — Framer: 444x480 @ (869, 681)
+  const px = X(869), py = Y(681), pw = 444 * S, ph = 480 * S;
+  const uri = await photo("portrait.jpg", pw, ph, { left: 160, top: 236, width: 720, height: 778 });
+  b += anim(
+    uri
+      ? `<image x="${px}" y="${py}" width="${pw}" height="${ph}" preserveAspectRatio="xMidYMid slice" href="${uri}"/>`
+      : `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="#E6E6E6"/>`,
+    0.3,
+  );
+
+  // intro paragraph (Framer: 14/20 @ y681, 501 wide)
+  const p = para(ME.intro, { x: M, top: py, size: 15.5, lh: 23, fill: C.ink, ls: em(15.5, -0.01), maxW: 430, delay: 0.35 });
+  b += p.svg;
+
+  // status button (Framer: "Contact Now", 40px high, 40px below the paragraph)
+  const btn = button(M, p.bottom + 30, ME.status, { dot: C.green });
+  b += anim(btn.svg, 0.45);
+
+  // toolkit — takes the place of "Featured clients": label + 3x2 grey logos,
+  // the last row sitting on the portrait's bottom edge (as in the template)
+  const rowH = 18, pitch = 54 * S, colW = 142;
+  const row2 = py + ph - rowH;
+  const row1 = row2 - pitch;
+  b += anim(T(ME.toolsLabel, { x: M, y: base(row1 - 38 * S, 14, 12), size: 12, w: 600, ls: em(12, -0.02) }), 0.5);
+  ME.tools.forEach(([name, icon], i) => {
+    const x = M + (i % 3) * colW;
+    const top = i < 3 ? row1 : row2;
+    const s = 17;
+    let t = `<path d="${icon.path}" transform="translate(${x} ${top + (rowH - s) / 2}) scale(${s / 24})" fill="${C.logo}"/>`;
+    t += T(name, { x: x + s + 7, y: top + rowH / 2 + (CAP * 15) / 2, size: 15, w: 600, fill: C.logo, ls: em(15, -0.02) });
+    b += anim(t, 0.55 + i * 0.04);
   });
+
+  const h = Math.round(py + ph + 64);
+  svg("hero", h, b, { title: "Hello, I'm Saeed Ijaz — designer and developer based in Dubai" });
 }
 
 /* ------------------------------------------------------------------ */
 /* 2. Services                                                         */
 /* ------------------------------------------------------------------ */
-const ICONS = {
-  pen: `<path d="M14 34 C18 18 30 18 34 34" fill="none" stroke="#fff" stroke-width="2"/><circle cx="14" cy="34" r="3" fill="#000" stroke="#fff" stroke-width="2"/><circle cx="34" cy="34" r="3" fill="#000" stroke="#fff" stroke-width="2"/><path d="M14 34 L10 18 M34 34 L38 18" stroke="#fff" stroke-opacity=".5" stroke-width="1.5"/><circle cx="10" cy="17" r="2" fill="#fff"/><circle cx="38" cy="17" r="2" fill="#fff"/>`,
-  camera: `<rect x="9" y="16" width="22" height="17" rx="4" fill="none" stroke="#fff" stroke-width="2"/><path d="M31 22 L39 17 V32 L31 27Z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="15" cy="22" r="2" fill="${C.accent}"/>`,
-  timeline: `<rect x="9" y="14" width="18" height="5" rx="2.5" fill="#fff"/><rect x="15" y="22" width="24" height="5" rx="2.5" fill="#fff" fill-opacity=".55"/><rect x="9" y="30" width="13" height="5" rx="2.5" fill="#fff" fill-opacity=".8"/><path d="M29 10 V38" stroke="${C.accent}" stroke-width="2"/>`,
-  spark: spark(24, 24, 13) + spark(36, 13, 4.5, C.accent),
-};
 {
-  const top = 176, cw = 460, ch = 214, gx = 32, gy = 20;
-  const h = top + ch * 2 + gy + 32;
-  let b = `<ellipse cx="900" cy="40" rx="360" ry="200" fill="url(#g1)" class="breathe"/>`;
-  b += plus(52, 40, 18, 4);
-  b += label("WHAT I DO", 48, 82);
-  b += T("Services", { x: 44, y: 146, size: 70, w: "bold", ls: -1.8 });
+  const top = 64;
+  let b = "";
+  const hs = 100 * S;
+  b += anim(T("SERVICES", { x: M, y: base(top, 89 * S, hs), size: hs, w: 700, ls: em(hs, -0.08) }), 0);
+
+  const colX = X(774); // [01] + title
+  const tagX = 736; // tags + description
+  const right = W - M;
+  const descW = right - tagX;
+  let y = top;
   ME.services.forEach((s, i) => {
-    const x = gx + (i % 2) * (cw + 16);
-    const y = top + Math.floor(i / 2) * (ch + gy);
-    b += `<g class="up" style="animation-delay:${0.15 + i * 0.1}s"><g transform="translate(${x} ${y})">`;
-    b += `<rect width="${cw}" height="${ch}" rx="20" fill="${C.panel}" stroke="#fff" stroke-opacity=".08"/>`;
-    b += `<rect x="24" y="24" width="48" height="48" rx="12" fill="#111" stroke="#fff" stroke-opacity=".12"/>`;
-    b += `<g transform="translate(24 24)">${ICONS[s.icon]}</g>`;
-    b += T(s.title, { x: 24, y: 114, size: 25, w: "semi", ls: -0.3 });
-    s.text.forEach((t, j) => (b += T(t, { x: 24, y: 144 + j * 22, size: 15.5, w: "med", op: 0.55 })));
-    b += T(s.tags, { x: 24, y: 194, size: 11, w: "bold", op: 0.35, ls: 1.3 });
-    b += `</g></g>`;
+    let r = "";
+    // [01]  14/20 semibold
+    r += T(`[0${i + 1}]`, { x: colX, y: base(y, 20, 14), size: 14, w: 600, ls: em(14, -0.02) });
+    // title 24/28 semibold, -3%, 40px below the number
+    r += T(s.title, { x: colX, y: base(y + 40 * S, 28, 21), size: 21, w: 600, ls: em(21, -0.03) });
+    // tags  "Brand • Strategy • Communication"
+    let tx = tagX;
+    s.tags.forEach((tag, j) => {
+      if (j) {
+        r += `<circle cx="${tx + 7.5}" cy="${y + 10 - 0.5}" r="1.9" fill="${C.ink}"/>`;
+        tx += 15;
+      }
+      r += T(tag, { x: tx, y: base(y, 20, 13.5), size: 13.5, w: 600, ls: em(13.5, -0.02) });
+      tx += measure(tag, 13.5, 600, em(13.5, -0.02));
+    });
+    if (tx > right) console.warn(`! tags overflow in "${s.title}" by ${(tx - right).toFixed(1)}px`);
+    // description 14/20 regular #666, 32px below the row top
+    const d = para(s.text, { x: tagX, top: y + 32 * S, size: 14.5, lh: 21, fill: C.muted, ls: em(14.5, -0.01), maxW: descW });
+    r += d.svg;
+    const titleBottom = y + 40 * S + 28;
+    const divider = Math.max(d.bottom, titleBottom) + 58 * S;
+    r += `<rect x="${colX}" y="${divider}" width="${right - colX}" height="1" fill="${C.line}"/>`;
+    b += anim(r, 0.1 + i * 0.08);
+    y = divider + 1 + 62 * S;
   });
-  sizes.services = svg("services", h, b, {
-    title: "Services: " + ME.services.map((s) => s.title).join(", "),
-    defs: glow("g1", "#B3261E", 0.22),
-  });
+  const h = Math.round(y - 62 * S + 64);
+  svg("services", h, b, { title: "Services: " + ME.services.map((s) => s.title).join(", ") });
 }
 
 /* ------------------------------------------------------------------ */
-/* 3. Toolset                                                          */
+/* 3. Projects                                                         */
 /* ------------------------------------------------------------------ */
-/** Adobe-style app tile: dark tile, coloured letters (real Simple Icons glyphs). */
-function adobeIcon(icon, bg, fg, x, y, s, id) {
-  const k = s / 24;
-  return `<mask id="${id}" maskUnits="userSpaceOnUse" x="${x}" y="${y}" width="${s}" height="${s}">
-    <rect x="${x + k}" y="${y + k}" width="${s - 2 * k}" height="${s - 2 * k}" rx="${4 * k}" fill="#fff"/>
-    <path d="${icon.path}" transform="translate(${x} ${y}) scale(${k})" fill="#000"/></mask>
-  <rect x="${x}" y="${y}" width="${s}" height="${s}" rx="${s * 0.2}" fill="${bg}"/>
-  <rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${fg}" mask="url(#${id})"/>
-  <rect x="${x + 0.5}" y="${y + 0.5}" width="${s - 1}" height="${s - 1}" rx="${s * 0.2}" fill="none" stroke="${fg}" stroke-opacity=".25"/>`;
-}
-/** Dark tile with a full-colour or single-colour logo centred inside. */
-function tileIcon(inner, x, y, s, bg = "#141414") {
-  return `<rect x="${x}" y="${y}" width="${s}" height="${s}" rx="${s * 0.2}" fill="${bg}"/>
-  <rect x="${x + 0.5}" y="${y + 0.5}" width="${s - 1}" height="${s - 1}" rx="${s * 0.2}" fill="none" stroke="#fff" stroke-opacity=".1"/>${inner}`;
-}
-const siLogo = (icon, x, y, size, fill) =>
-  `<path d="${icon.path}" transform="translate(${x} ${y}) scale(${size / 24})" fill="${fill}"/>`;
-function figmaLogo(cx, cy, hgt) {
-  const k = hgt / 57;
-  return `<g transform="translate(${cx - 19 * k} ${cy - 28.5 * k}) scale(${k})">
-    <path d="M19 0H9.5a9.5 9.5 0 0 0 0 19H19V0z" fill="#F24E1E"/>
-    <path d="M19 0h9.5a9.5 9.5 0 0 1 0 19H19V0z" fill="#FF7262"/>
-    <path d="M9.5 19a9.5 9.5 0 0 0 0 19H19V19H9.5z" fill="#A259FF"/>
-    <circle cx="28.5" cy="28.5" r="9.5" fill="#1ABCFE"/>
-    <path d="M0 47.5A9.5 9.5 0 0 0 9.5 57 9.5 9.5 0 0 0 19 47.5V38H9.5A9.5 9.5 0 0 0 0 47.5z" fill="#0ACF83"/></g>`;
-}
-
-const TOOLS = [
-  { name: "Photoshop", icon: (x, y, s, id) => adobeIcon(SI.siAdobephotoshop, "#001E36", "#31A8FF", x, y, s, id) },
-  { name: "Illustrator", icon: (x, y, s, id) => adobeIcon(SI.siAdobeillustrator, "#330000", "#FF9A00", x, y, s, id) },
-  { name: "Lightroom", icon: (x, y, s, id) => adobeIcon(SI.siAdobelightroom, "#001E36", "#31A8FF", x, y, s, id) },
-  { name: "Premiere Pro", icon: (x, y, s, id) => adobeIcon(SI.siAdobepremierepro, "#00005B", "#9999FF", x, y, s, id) },
-  { name: "After Effects", icon: (x, y, s, id) => adobeIcon(SI.siAdobeaftereffects, "#00005B", "#9999FF", x, y, s, id) },
-  { name: "DaVinci Resolve", icon: (x, y, s, id) => tileIcon(`<clipPath id="${id}"><rect x="${x + s * 0.16}" y="${y + s * 0.16}" width="${s * 0.68}" height="${s * 0.68}"/></clipPath><g clip-path="url(#${id})">${siLogo(SI.siDavinciresolve, x - s * 0.02, y - s * 0.02, s * 1.04, "url(#dvr)")}</g>`, x, y, s, "#14161C") },
-  { name: "Figma", icon: (x, y, s) => tileIcon(figmaLogo(x + s / 2, y + s / 2, s * 0.6), x, y, s, "#1E1E1E") },
-  { name: "Claude", icon: (x, y, s) => tileIcon(siLogo(SI.siClaude, x + s * 0.2, y + s * 0.2, s * 0.6, "#D97757"), x, y, s, "#1C1410") },
-  { name: "Codex", icon: (x, y, s) => tileIcon(siLogo(SI.siOpenai, x + s * 0.2, y + s * 0.2, s * 0.6, "#FFFFFF"), x, y, s, "#141414") },
-];
-
 {
-  let b = plus(52, 40, 18, 4);
-  b += label("WHAT I WORK WITH", 48, 82);
-  b += T("Toolset", { x: 44, y: 146, size: 70, w: "bold", ls: -1.8 });
-  const s = 40, top = 192, slot = (W - 96 - s) / (TOOLS.length - 1);
-  TOOLS.forEach((t, i) => {
-    const cx = 48 + s / 2 + slot * i;
-    b += `<g class="up" style="animation-delay:${0.1 + i * 0.05}s">`;
-    b += t.icon(cx - s / 2, top, s, "am" + i);
-    b += T(t.name, { x: cx, y: top + s + 24, size: 12.5, w: "med", op: 0.55, anchor: "middle" });
-    b += `</g>`;
-  });
-  const h = top + s + 62;
-  sizes.tools = svg("tools", h, b, {
-    title: "Toolset: " + TOOLS.map((t) => t.name).join(", "),
-    defs: `<linearGradient id="dvr" x1="0" y1="0" x2="1" y2="1"><stop offset=".2" stop-color="#FF7A45"/><stop offset=".55" stop-color="#3FD0C9"/><stop offset=".85" stop-color="#3D8BFF"/></linearGradient>`,
-  });
+  const top = 64;
+  let b = "";
+  const hs = 100 * S;
+  b += anim(T("PROJECTS", { x: W / 2, y: base(top, 89 * S, hs), size: hs, w: 700, ls: em(hs, -0.08), anchor: "middle" }), 0);
+
+  const imgTop = top + 169 * S; // Framer: images start 169px below the heading box
+  const iw = 580 * S, ih = 429 * S;
+  let bottom = 0;
+  for (const [i, p] of ME.projects.entries()) {
+    const x = i === 0 ? X(113) : X(733);
+    let r = "";
+    const uri = await photo(`${p.image}.jpg`, iw, ih);
+    r += uri
+      ? `<image x="${x}" y="${imgTop}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice" href="${uri}"/>`
+      : `<rect x="${x}" y="${imgTop}" width="${iw}" height="${ih}" fill="#111"/>`;
+    // title 32/36 semibold -3%, 12px under the image
+    const tTop = imgTop + ih + 12 * S;
+    r += T(p.name, { x, y: base(tTop, 30, 26), size: 26, w: 600, ls: em(26, -0.03) });
+    // description 14/20 #666, 40px under the title top
+    const d = para(p.text, { x, top: tTop + 40 * S, size: 15, lh: 22, fill: C.muted, ls: em(15, -0.01), maxW: iw - 20 });
+    r += d.svg;
+    // chip (Framer: "View Project", #F9F9F9, 8/20 padding, 23px under the text)
+    const chipTop = d.bottom + 23 * S;
+    const chip = button(x, chipTop, p.chip, { h: 34, size: 14, w: 500, fill: C.soft, color: C.ink, pad: 16, stroke: "#EDEDED" });
+    r += chip.svg;
+    bottom = Math.max(bottom, chipTop + 34);
+    b += anim(r, 0.15 + i * 0.12);
+  }
+  const h = Math.round(bottom + 64);
+  svg("projects", h, b, { title: "Projects: " + ME.projects.map((p) => `${p.name} — ${p.text}`).join(" | ") });
 }
 
 /* ------------------------------------------------------------------ */
 /* 4. Footer                                                           */
 /* ------------------------------------------------------------------ */
 {
-  const h = 400;
-  let b = `<ellipse cx="300" cy="${h + 40}" rx="520" ry="220" fill="url(#g1)" class="breathe"/><ellipse cx="820" cy="${h + 60}" rx="360" ry="200" fill="url(#g2)" class="breathe" style="animation-delay:-4s"/>`;
-  b += T(ME.first, { x: 44, y: 160, size: 88, w: "bold", ls: -2 });
-  b += plus(44 + measure(ME.first, 88, "bold", -2) + 16, 96, 24, 6);
-  ME.footer.text.forEach((t, i) => (b += T(t, { x: 48, y: 204 + i * 25, size: 16.5, w: "med", op: 0.6 })));
-  b += pill(48, 252, ME.footer.button).svg;
-  ME.footer.info.forEach(([k, v], i) => {
-    const y = 92 + i * 64;
-    b += T(k, { x: W - 48, y, size: 13, w: "bold", op: 0.45, ls: 1.3, anchor: "end" });
-    b += T(v, { x: W - 48, y: y + 28, size: 20, w: "semi", anchor: "end" });
+  const f = ME.footer;
+  const Y = (y) => (y - 9400) * S; // Framer footer section starts at y9400
+  const top = Y(9520);
+  let b = "";
+  // heading 60/72 bold -8% uppercase -> 45px
+  const hs = 60 * S, lh = 72 * S;
+  f.heading.forEach((line, i) => {
+    b += anim(T(line, { x: M, y: base(top + i * lh, lh, hs), size: hs, w: 700, ls: em(hs, -0.08) }), 0.05 + i * 0.06);
   });
-  b += `<line x1="48" y1="${h - 72}" x2="${W - 48}" y2="${h - 72}" stroke="#fff" stroke-opacity=".1"/>`;
-  b += T(ME.footer.left, { x: 48, y: h - 34, size: 15, w: "med", op: 0.7 });
-  sizes.footer = svg("footer", h, b, {
-    title: "Saeed Ijaz — Dubai, UAE",
-    defs: `${glow("g1", "#B3261E", 0.35)}${glow("g2", "#5B2A86", 0.3)}`,
+  // black chip (Framer: "Contact Now" 16/600, 16/28 padding, 54px high @ y9694)
+  const chipTop = Y(9694);
+  const chip = button(M, chipTop, f.chip, { h: 42, size: 15, pad: 21, dot: C.green });
+  b += anim(chip.svg, 0.2);
+
+  // columns: header 14/700, items 14/400 #333 on a 44px rhythm
+  const gap = 44;
+  const widths = f.columns.map(([hd, items]) =>
+    Math.max(measure(hd, 13, 700, em(13, -0.02)), ...items.map((t) => measure(t, 14, 400, em(14, -0.01)))),
+  );
+  let cx = W - M - widths.reduce((a, b) => a + b, 0) - gap * (widths.length - 1);
+  let colBottom = 0;
+  f.columns.forEach(([hd, items], i) => {
+    const hTop = top; // headers share the heading's top edge
+    let c = T(hd, { x: cx, y: base(hTop, 21, 13), size: 13, w: 700, ls: em(13, -0.02) });
+    items.forEach((t, j) => {
+      const iTop = Y(9565) + j * 44 * S;
+      c += T(t, { x: cx, y: base(iTop, 20, 14), size: 14, w: 400, fill: C.item, ls: em(14, -0.01) });
+      colBottom = Math.max(colBottom, iTop + 20);
+    });
+    b += anim(c, 0.15 + i * 0.06);
+    cx += widths[i] + gap;
   });
+
+  // divider @ y9827, copyright 14/20 #808080 @ y9856, section ends @ y9904
+  const divider = Math.max(Y(9827), Math.max(chipTop + 42, colBottom) + 40);
+  b += `<rect x="${M}" y="${divider}" width="${W - 2 * M}" height="1" fill="${C.ink}" fill-opacity=".1"/>`;
+  const cTop = divider + (9856 - 9827) * S - 2.5;
+  b += anim(T(f.copyright, { x: W / 2, y: base(cTop, 20, 14), size: 14, w: 400, fill: C.gray, ls: em(14, -0.01), anchor: "middle" }), 0.3, "fade");
+  const h = Math.round(cTop + 20 + (9904 - 9876) * S + 4);
+  svg("footer", h, b, { bg: C.soft, title: "Saeed Ijaz — Dubai, UAE" });
 }
 
-console.log(Object.fromEntries(Object.entries(sizes).map(([k, v]) => [k, `${(v / 1024).toFixed(0)} KB`])));
+console.log(sizes);
